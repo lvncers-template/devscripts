@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+# toggle-term: ターミナルペインを隠す/戻す (Cursor の Ctrl+J 風)
+SESSION="${1:?session id required}"
+
+pane_by_role() {
+  tmux list-panes -s -t "$SESSION" -F '#{pane_id} #{@role}' \
+    | awk -v r="$1" '$2 == r { print $1; exit }'
+}
+
+EDITOR_PANE=$(pane_by_role editor)
+TERM_PANE=$(pane_by_role term)
+[ -n "$EDITOR_PANE" ] && [ -n "$TERM_PANE" ] || exit 0
+
+editor_win=$(tmux display -p -t "$EDITOR_PANE" '#{window_id}')
+term_win=$(tmux display -p -t "$TERM_PANE" '#{window_id}')
+
+if [ "$editor_win" = "$term_win" ]; then
+  tmux break-pane -d -s "$TERM_PANE" -n _term                  # 隠す
+  tmux select-pane -t "$EDITOR_PANE"
+else
+  tmux join-pane -v -l 25% -s "$TERM_PANE" -t "$EDITOR_PANE"   # 戻す
+  tmux select-pane -t "$TERM_PANE"
+fi
+

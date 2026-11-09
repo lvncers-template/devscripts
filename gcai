@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# gcai: stage済みの差分からAIがコミットメッセージを作り、エディタで確認してからコミットする
+set -euo pipefail
+
+diff=$(git diff --cached --no-ext-diff)
+if [ -z "$diff" ]; then
+  echo "stage済みの変更がないよ (git add してね)" >&2
+  exit 1
+fi
+
+msg=$(mktemp)
+trap 'rm -f "$msg"' EXIT
+
+printf '%s\n' "$diff" | claude -p --model haiku --no-session-persistence \
+  "次のstage済みdiffから、Conventional Commits形式のコミットメッセージを日本語で1つだけ出力して。
+1行目は72文字以内の要約。必要なら空行を挟んで箇条書きの本文。前置き・説明・コードブロックは付けないで。" \
+  > "$msg"
+
+git commit -e -F "$msg"   # エディタが開くので、確認・修正して保存すればコミット
+

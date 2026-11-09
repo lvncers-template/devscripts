@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# usage: dev [dir]   Cursor風レイアウトを作って入る
+DIR="$(cd "${1:-$PWD}" && pwd)"
+SESSION="dev-$(basename "$DIR")"
+
+if ! tmux has-session -t "$SESSION" 2>/dev/null; then
+  # detached だと 80x24 で作られて % 指定が狂うので、端末サイズを明示する
+  EDITOR_PANE=$(tmux new-session -d -x "$(tput cols)" -y "$(tput lines)" \
+    -s "$SESSION" -c "$DIR" -n main -P -F '#{pane_id}')
+  AI_PANE=$(tmux split-window -h -l 35% -t "$EDITOR_PANE" -c "$DIR" -P -F '#{pane_id}')
+  TERM_PANE=$(tmux split-window -v -l 25% -t "$EDITOR_PANE" -c "$DIR" -P -F '#{pane_id}')
+
+  # toggle-term が目印に使う
+  tmux set-option -p -t "$EDITOR_PANE" @role editor
+  tmux set-option -p -t "$AI_PANE"     @role ai
+  tmux set-option -p -t "$TERM_PANE"   @role term
+
+  tmux send-keys -t "$EDITOR_PANE" 'nvim' C-m
+  tmux send-keys -t "$AI_PANE" 'claude' C-m   # 使ってなければ消してOK
+  tmux select-pane -t "$EDITOR_PANE"
+fi
+
+if [ -n "${TMUX:-}" ]; then
+  tmux switch-client -t "$SESSION"
+else
+  tmux attach -t "$SESSION"
+fi
+
